@@ -4,12 +4,22 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
-import { errorHandler } from "./middleware/errorHandler.js";
+import { errorHandler } from "./middleware/error.js";
+import authRoute from "./feature/auth/auth.route.js";
+import documentRoutes from "./feature/documents/document.routes.js";
+
+import connectDB from "./config/db.js";
+import cookieParser from "cookie-parser";
+import flashcardRouter from "./feature/flashCard/flashcard.routes.js";
+import aiRouter from "./feature/ai/ai.routes.js";
+
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config();
+
 
 const app = express();
 
@@ -17,15 +27,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// MongoDB Connection
-try {
-  await mongoose.connect(process.env.MONGO_URI);
-  console.log("MongoDB Connected");
-} catch (error) {
-  console.error("DB Connection Failed:", error.message);
-  process.exit(1);
-}
+app.use(cookieParser());
 
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',
@@ -34,6 +36,22 @@ app.use(cors({
   credentials: true // Required for HttpOnly cookies
 }));
 
+// Connect to MongoDB
+connectDB();
+
+// Serve uploaded files statically
+
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Routes
+app.use("/api/auth",authRoute);
+app.use("/api/documents",documentRoutes);
+app.use("/api/flashcards", flashcardRouter);
+app.use("/api/ai", aiRouter);
+
+
+
 //static folder
 app.use(express.static(path.join(__dirname, "public")));
 // Test Route
@@ -41,11 +59,13 @@ app.get("/", (req, res) => {
   res.json({ message: "API is running..." });
 });
 
+
 app.use(errorHandler);
 // 404 Handler
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
+
 
 //server start
 const PORT = process.env.PORT || 5000;
