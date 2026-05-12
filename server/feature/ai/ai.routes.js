@@ -5,7 +5,8 @@ import {
   generateSummary,
   chat,
   explainConcept,
-  getChatHistory
+  getChatHistory,
+  generateMindMap
 } from '../ai/ai.controller.js';
 import { isAuth } from "../../middleware/authMiddleware.js";
 
@@ -20,6 +21,7 @@ aiRouter.post('/generate-quiz', generateQuiz);
 aiRouter.post('/generate-summary', generateSummary);
 aiRouter.post('/chat', chat);
 aiRouter.post('/explain-concept', explainConcept);
+aiRouter.post('/generate-mindmap', generateMindMap);
 
 // GET route for fetching chat history
 aiRouter.get('/chat-history/:documentId', getChatHistory);

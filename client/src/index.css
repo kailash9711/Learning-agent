@@ -1,1 +1,25 @@
 @import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@keyframes brand-icon-float {
+	0%,
+	100% {
+		transform: translateY(0px) rotate(0deg);
+	}
+	30% {
+		transform: translateY(-2px) rotate(-3deg);
+	}
+	70% {
+		transform: translateY(1px) rotate(2deg);
+	}
+}
+
+.brand-icon-motion {
+	animation: brand-icon-float 2.4s ease-in-out infinite;
+	filter: drop-shadow(0 3px 6px rgb(79 70 229 / 0.25));
+}
+
+.brand-icon-wrap:hover .brand-icon-motion {
+	animation-duration: 1.2s;
+}

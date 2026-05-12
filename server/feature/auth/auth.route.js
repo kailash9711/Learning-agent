@@ -2,7 +2,7 @@ import express from "express";
 import {body} from "express-validator";
 
 import{
-register, login , logout, getUser} from "./auth.Controller.js";
+register, login , logout, getUser} from "./auth.controller.js";
 import { isAuth } from "../../middleware/authMiddleware.js";
 
 

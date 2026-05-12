@@ -41,6 +41,13 @@ const userSchema = new mongoose.Schema(
             isCorrect: { type: Boolean, required: true },
             answeredAt: { type: Date, default: Date.now }
         }],
+      activityHistory: [{
+        questionIndex: { type: Number, default: null },
+        action: { type: String, enum: ["viewed", "answered"], required: true },
+        selectedOption: { type: String, default: null },
+        isCorrect: { type: Boolean, default: null },
+        createdAt: { type: Date, default: Date.now }
+      }],
 
        score: { type: Number, default: 0 },
        totalQuestions: { type: Number, default: 0 },
@@ -48,8 +55,8 @@ const userSchema = new mongoose.Schema(
     },
     { timestamps: true }
 );
-// Index to ensure a user can only have one quiz per document
-userSchema.index({ userId: 1, documentId: 1 }, { unique: true });
+// Index for quick listing of a user's quiz sets by document and recency
+userSchema.index({ userId: 1, documentId: 1, createdAt: -1 });
 const Quiz = mongoose.models.Quiz || mongoose.model("Quiz", userSchema);
 export default Quiz;
 

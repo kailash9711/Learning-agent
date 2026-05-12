@@ -1,4 +1,12 @@
-import Flashcard from "../flashcard/flashcard.model.js";
+import Flashcard from "../flashCard/flashcard.model.js";
+
+const normalizeDocumentId = (value) => {
+  const raw = typeof value === "object" && value !== null
+    ? value._id ?? value.id ?? value.documentId
+    : value;
+
+  return raw ? String(raw) : "";
+};
 
 // Get all flashcard sets for a user
 export const getFlashcards = async (req, res) => {
@@ -134,5 +142,101 @@ res.status(200).json({
     } catch (error) {
         next(error);
     }
+};
+
+export const logFlashcardActivity = async (req, res, next) => {
+  try {
+    const { setId, documentId: rawDocumentId, cardId, action, isCorrect } = req.body;
+    const documentId = normalizeDocumentId(rawDocumentId);
+
+    if (!["viewed", "answered"].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid action. Use viewed or answered",
+        statusCode: 400,
+      });
+    }
+
+    let flashcardSet = null;
+
+    if (setId) {
+      flashcardSet = await Flashcard.findOne({ _id: setId, userId: req.user._id });
+    } else if (documentId) {
+      flashcardSet = await Flashcard.findOne({ documentId, userId: req.user._id });
+    }
+
+    if (!flashcardSet) {
+      return res.status(404).json({
+        success: false,
+        error: "Flashcard set not found",
+        statusCode: 404,
+      });
+    }
+
+    flashcardSet.activityHistory.push({
+      cardId: cardId || null,
+      action,
+      isCorrect: typeof isCorrect === "boolean" ? isCorrect : null,
+      createdAt: new Date(),
+    });
+
+    await flashcardSet.save();
+
+    const latestActivity = flashcardSet.activityHistory[flashcardSet.activityHistory.length - 1];
+
+    res.status(200).json({
+      success: true,
+      data: latestActivity,
+      message: "Flashcard activity tracked successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getFlashcardHistory = async (req, res, next) => {
+  try {
+    const documentId = normalizeDocumentId(req.query.documentId);
+    const query = { userId: req.user._id };
+
+    if (documentId) {
+      query.documentId = documentId;
+    }
+
+    const sets = await Flashcard.find(query)
+      .select("documentId title activityHistory cards")
+      .sort({ updatedAt: -1 });
+
+    const history = sets
+      .flatMap((set) =>
+        (set.activityHistory || []).map((event) => {
+          const card = event.cardId
+            ? (set.cards || []).find((item) => String(item._id) === String(event.cardId))
+            : null;
+
+          return {
+            _id: event._id,
+            setId: set._id,
+            documentId: set.documentId,
+            title: set.title,
+            cardId: event.cardId,
+            cardQuestion: card?.question || null,
+            action: event.action,
+            isCorrect: event.isCorrect,
+            createdAt: event.createdAt,
+          };
+        })
+      )
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.status(200).json({
+      success: true,
+      count: history.length,
+      data: history,
+      message: "Flashcard history fetched successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 

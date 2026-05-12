@@ -12,6 +12,10 @@ const flashcardSchema = new mongoose.Schema(
             ref: "Document",
             required: true
         },
+        title: {
+            type: String,
+            default: null
+        },
         cards: [
             {
                 question: { type: String, required: true },
@@ -23,12 +27,33 @@ const flashcardSchema = new mongoose.Schema(
                 createdAt: { type: Date, default: Date.now }
             }
         ],
+        activityHistory: [
+            {
+                cardId: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    default: null,
+                },
+                action: {
+                    type: String,
+                    enum: ["viewed", "answered"],
+                    required: true,
+                },
+                isCorrect: {
+                    type: Boolean,
+                    default: null,
+                },
+                createdAt: {
+                    type: Date,
+                    default: Date.now,
+                },
+            },
+        ],
         
     },
     { timestamps: true }
 )
 
-flashcardSchema.index({ userId: 1, documentId: 1 }, { unique: true });
+flashcardSchema.index({ userId: 1, documentId: 1, createdAt: -1 });
 
 const Flashcard = mongoose.models.Flashcard || mongoose.model("Flashcard", flashcardSchema);
 export default Flashcard;

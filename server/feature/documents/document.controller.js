@@ -1,15 +1,17 @@
 import Document from "../documents/document.model.js";
-import Flashcard from "../flashcard/flashcard.model.js";
+import Flashcard from "../flashCard/flashcard.model.js";
 import Quiz from "../quiz/quiz.model.js";
 
 import extractTxtFromPDF from "../../utils/pdfParser.js";
 import{ chunkText} from "../../utils/textChunker.js";
 import fs from "fs/promises";
+import path from "path";
 
 
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 import mongoose from "mongoose";
 import { error } from "console";
+import { logActivity } from "../../utils/activityLogger.js";
 // @desc    Upload a document
 // @route   POST /api/documents
 // @access  Private
@@ -30,7 +32,7 @@ import { error } from "console";
             //contruct the base URL for the uploaded file
 
             const baseUrl = `http://localhost:${process.env.PORT || 8000}`;
-            const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
+            const fileUrl = `${baseUrl}/uploads/documents/${req.file.filename}`;
 
             //create a new document in the database
             const document = await Document.create({
@@ -48,6 +50,8 @@ import { error } from "console";
                 //update document status to failed
                 Document.findByIdAndUpdate(document._id, { status: "error" }).exec();
             });
+
+            logActivity(req.user._id, 'upload_document', document._id);
 
             res.status(201).json({ success: true, data: document , message: "Document uploaded successfully, processing in background" });
         } catch (error) {
@@ -182,9 +186,8 @@ import { error } from "console";
 
             //delete file from file system
 
-            await fs.unlink(document.filePath).catch(()=>{
-
-            })
+            const filePath = path.join(process.cwd(), "public", "uploads", "documents", document.fileName);
+            await fs.unlink(filePath).catch(() => {});
 
             await document.deleteOne();
             res.status(200).json({

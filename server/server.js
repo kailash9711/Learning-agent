@@ -7,11 +7,13 @@ import { fileURLToPath } from "url";
 import { errorHandler } from "./middleware/error.js";
 import authRoute from "./feature/auth/auth.route.js";
 import documentRoutes from "./feature/documents/document.routes.js";
+import quizRouter from "./feature/quiz/quiz.routes.js";
 
 import connectDB from "./config/db.js";
 import cookieParser from "cookie-parser";
 import flashcardRouter from "./feature/flashCard/flashcard.routes.js";
 import aiRouter from "./feature/ai/ai.routes.js";
+import userRouter from "./feature/user/user.routes.js";
 
 
 dotenv.config();
@@ -24,31 +26,28 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 // Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
-
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true // Required for HttpOnly cookies
 }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Connect to MongoDB
 connectDB();
 
 // Serve uploaded files statically
-
-
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", express.static(path.join(__dirname, "public", "uploads")));
 
 // Routes
 app.use("/api/auth",authRoute);
 app.use("/api/documents",documentRoutes);
 app.use("/api/flashcards", flashcardRouter);
+app.use("/api/quiz", quizRouter);
 app.use("/api/ai", aiRouter);
+app.use("/api/user", userRouter);
 
 
 

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="capTop" x1="8" y1="22" x2="56" y2="42" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6D28D9" />
+      <stop offset="1" stop-color="#10B981" />
+    </linearGradient>
+    <linearGradient id="capBase" x1="20" y1="34" x2="44" y2="50" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4F46E5" />
+      <stop offset="1" stop-color="#7C3AED" />
+    </linearGradient>
+  </defs>
+
+  <path d="M32 10L4 24L32 38L60 24L32 10Z" fill="url(#capTop)" />
+  <path d="M20 35.5V44.5C20 46.8 25.4 51 32 51C38.6 51 44 46.8 44 44.5V35.5L32 41L20 35.5Z" fill="url(#capBase)" />
+  <path d="M52 28V39C52 40.1 52.9 41 54 41C55.1 41 56 40.1 56 39V26.5" stroke="#4C1D95" stroke-width="2.6" stroke-linecap="round" />
+  <circle cx="54" cy="43.7" r="3" fill="#A78BFA" />
+</svg>

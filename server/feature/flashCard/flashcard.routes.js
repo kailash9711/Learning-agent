@@ -5,6 +5,8 @@ import {
   reviewFlashcard,
   toggleStarFlashcard,
   deleteFlashcardSet,
+  logFlashcardActivity,
+  getFlashcardHistory,
 } from '../flashCard/flashcard.controller.js';
 import { isAuth } from "../../middleware/authMiddleware.js";
 
@@ -16,6 +18,8 @@ flashcardRouter.use(isAuth);
 
 // Routes definition
 flashcardRouter.get('/', getAllFlashcardSets);
+flashcardRouter.get('/history', getFlashcardHistory);
+flashcardRouter.post('/activity', logFlashcardActivity);
 flashcardRouter.get('/:documentId', getFlashcards);
 flashcardRouter.post('/:cardId/review', reviewFlashcard);
 flashcardRouter.put('/:cardId/star', toggleStarFlashcard);

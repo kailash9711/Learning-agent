@@ -17,7 +17,7 @@ const chatHistorySchema = new mongoose.Schema(
                 role: { type: String, enum: ['user', 'assistant'], required: true },
                 content: { type: String, required: true },
                 timestamp: { type: Date, default: Date.now },
-                relevantchunk: { type: Number, default: [] }
+                relevantchunk: { type: [Number], default: [] }
             }
         ]
     },
