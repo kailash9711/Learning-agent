@@ -31,6 +31,22 @@ const allowedOrigins = [
   'http://localhost:3000',
 ].filter(Boolean).map((u) => u.replace(/\/$/, ''));
 
+// Private Network Access (PNA) support for public-to-local testing
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Private-Network', 'true');
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    if (req.headers['access-control-request-private-network']) {
+      res.setHeader('Access-Control-Allow-Private-Network', 'true');
+    }
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 // Middleware
 app.use(cors({
   origin: (origin, callback) => {
