@@ -6,7 +6,7 @@ import { errorHandler } from "./error.js";
 
 export const isAuth = asyncHandler(async (req, res, next) => {
 
-    const {token} = req.cookies;
+    const token = req.cookies?.token || req.headers?.authorization?.replace(/^Bearer\s+/i, "");
     if (!token) {
         return res.status(401).json({ success: false, error: "Not authorized, no token" });
     }

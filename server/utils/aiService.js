@@ -2,8 +2,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const OPENROUTER_API_KEY = process.env.OPEN_ROUTER_API;
-const DEFAULT_MODEL = "openai/gpt-oss-120b:free";
+const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 
 const PERSONA_PROMPTS = {
   standard: "You are a helpful and professional AI learning assistant.",
@@ -12,45 +11,140 @@ const PERSONA_PROMPTS = {
   peer: "You are a supportive and friendly study peer. Use simple, relatable language, plenty of analogies, and a conversational tone with occasional emojis. Keep things encouraging."
 };
 
-const requireOpenRouterKey = () => {
-  if (!OPENROUTER_API_KEY) {
-    const error = new Error("OPEN_ROUTER_API is not set in the environment variables.");
+const requireGeminiKey = () => {
+  if (!process.env.GEMINI_API_KEY?.trim()) {
+    const error = new Error("GEMINI_API_KEY is not set in the environment variables.");
     error.statusCode = 503;
     throw error;
   }
 };
 
-const callOpenRouter = async (messages, model = DEFAULT_MODEL) => {
-  requireOpenRouterKey();
+let cachedWorkingModel = null;
+let cachedApiVersion = "v1beta";
 
-  try {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+const getAvailableGeminiModel = async (apiKey) => {
+  if (cachedWorkingModel) return { model: cachedWorkingModel, apiVersion: cachedApiVersion };
+
+  const versions = ["v1beta", "v1"];
+  for (const ver of versions) {
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/${ver}/models?key=${apiKey}`);
+      if (res.ok) {
+        const data = await res.json();
+        const models = data.models || [];
+        console.log(`[Gemini] Available models (${ver}):`, models.map((m) => m.name.replace("models/", "")));
+        
+        // Prioritize gemini-3.6-flash or latest flash
+        const suitable = models.find(
+          (m) =>
+            m.supportedGenerationMethods?.includes("generateContent") &&
+            m.name.includes("3.6")
+        ) || models.find(
+          (m) =>
+            m.supportedGenerationMethods?.includes("generateContent") &&
+            (m.name.includes("flash") || m.name.includes("gemini"))
+        );
+
+        if (suitable) {
+          cachedWorkingModel = suitable.name.replace(/^models\//, "");
+          cachedApiVersion = ver;
+          console.log(`[Gemini] Selected working model: ${cachedWorkingModel} (${cachedApiVersion})`);
+          return { model: cachedWorkingModel, apiVersion: cachedApiVersion };
+        }
+      }
+    } catch (e) {
+      console.warn(`[Gemini] ListModels check failed on ${ver}:`, e.message);
+    }
+  }
+
+  // Fallback default
+  return { model: "gemini-3.6-flash", apiVersion: "v1beta" };
+};
+
+export const callGemini = async (messages, requestedModel = null) => {
+  requireGeminiKey();
+
+  const apiKey = process.env.GEMINI_API_KEY.trim();
+
+  // Determine model and API version
+  let targetModel = requestedModel || process.env.GEMINI_MODEL || cachedWorkingModel || "gemini-3.6-flash";
+  let apiVersion = cachedApiVersion || "v1beta";
+
+  // Separate system instruction from user/model messages
+  const systemMsg = messages.find((m) => m.role === "system");
+  const nonSystemMessages = messages.filter((m) => m.role !== "system");
+
+  const contents = nonSystemMessages.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content || "" }],
+  }));
+
+  const requestBody = {
+    contents: contents.length > 0 ? contents : [{ role: "user", parts: [{ text: "Hello" }] }],
+  };
+
+  if (systemMsg) {
+    requestBody.system_instruction = {
+      parts: [{ text: systemMsg.content || "" }],
+    };
+  }
+
+  const executeRequest = async (modelName, ver) => {
+    const url = `https://generativelanguage.googleapis.com/${ver}/models/${modelName}:generateContent?key=${apiKey}`;
+    return await fetch(url, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "http://localhost:3000", // Optional, for OpenRouter rankings
-        "X-Title": "AI Learning App", // Optional, for OpenRouter rankings
       },
-      body: JSON.stringify({
-        model: model,
-        messages: messages,
-      })
+      body: JSON.stringify(requestBody),
     });
+  };
+
+  try {
+    let response = await executeRequest(targetModel, apiVersion);
+
+    // If model not found or not supported, auto-discover supported models
+    if (!response.ok && (response.status === 404 || response.status === 400)) {
+      const errorJson = await response.json().catch(() => ({}));
+      const errMsg = errorJson.error?.message || "";
+
+      if (errMsg.includes("not found") || errMsg.includes("not supported") || response.status === 404) {
+        console.warn(`[Gemini] ${targetModel} not available (${errMsg}). Discovering supported models...`);
+        const discovered = await getAvailableGeminiModel(apiKey);
+        targetModel = discovered.model;
+        apiVersion = discovered.apiVersion;
+
+        console.log(`[Gemini] Retrying with discovered model: ${targetModel} on ${apiVersion}`);
+        response = await executeRequest(targetModel, apiVersion);
+      } else {
+        throw new Error(errMsg || `Gemini API Error (${response.status})`);
+      }
+    }
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error("OpenRouter API Error:", errorData);
-      throw new Error(errorData.error?.message || "Failed to fetch from OpenRouter");
+      const errorData = await response.json().catch(() => ({}));
+      console.error("Gemini API Error:", errorData);
+      throw new Error(errorData.error?.message || `Gemini API Error (${response.status}): ${response.statusText}`);
     }
 
     const data = await response.json();
-    return data.choices[0].message.content;
+    const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!candidateText) {
+      throw new Error("Gemini returned an empty response.");
+    }
+
+    cachedWorkingModel = targetModel;
+    cachedApiVersion = apiVersion;
+    return candidateText;
   } catch (error) {
     console.error("AI Generation Error:", error);
     throw error;
   }
 };
+
+
+export const callOpenRouter = callGemini;
 
 /**
  * Generate flashcards from text
@@ -70,7 +164,7 @@ Separate each flashcard with "---"
 Text:
 ${text.substring(0, 15000)}`;
 
-  const generatedText = await callOpenRouter([{ role: "user", content: prompt }]);
+  const generatedText = await callGemini([{ role: "user", content: prompt }]);
 
   const flashcards = [];
   const cards = generatedText.split('---').filter(c => c.trim());
@@ -117,7 +211,7 @@ Separate questions with "---"
 Text:
 ${text.substring(0, 15000)}`;
 
-  const generatedText = await callOpenRouter([{ role: "user", content: prompt }]);
+  const generatedText = await callGemini([{ role: "user", content: prompt }]);
 
   const questions = [];
   const questionBlocks = generatedText.split('---').filter(q => q.trim());
@@ -183,7 +277,7 @@ Please use the following format:
 Text:
 ${text.substring(0, 20000)}`;
 
-  return await callOpenRouter([
+  return await callGemini([
     { role: "system", content: systemMessage },
     { role: "user", content: prompt }
   ]);
@@ -213,7 +307,7 @@ Please use the following Markdown structure:
 **Document context:**
 ${text.substring(0, 15000)}`;
 
-  return await callOpenRouter([
+  return await callGemini([
     { role: "system", content: systemMessage },
     { role: "user", content: prompt }
   ]);
@@ -240,7 +334,7 @@ Question: ${question}
 
 Answer:`;
 
-  const generatedText = await callOpenRouter([
+  const generatedText = await callGemini([
     { role: "system", content: systemMessage },
     { role: "user", content: prompt }
   ]);
@@ -282,7 +376,7 @@ JSON Format Example:
 Text:
 ${text.substring(0, 15000)}`;
 
-  const generatedText = await callOpenRouter([{ role: "user", content: prompt }]);
+  const generatedText = await callGemini([{ role: "user", content: prompt }]);
   
   // Extract JSON from the response
   try {

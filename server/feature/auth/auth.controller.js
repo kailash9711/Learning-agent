@@ -41,10 +41,13 @@ export const login = asyncHandler(async (req, res) => {
 }   );
 
 
-export const logout= asyncHandler(async (req, res) => {
-    res.cookie("token", null, {
-        expires: new Date(Date.now()),
+export const logout = asyncHandler(async (req, res) => {
+    const isProduction = process.env.NODE_ENV === "production";
+    res.cookie("token", "", {
+        expires: new Date(0),
         httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax",
     });
     res.status(200).json({ success: true, message: "User logged out successfully" });
 });

@@ -7,10 +7,12 @@ export const generateToken = (user,statuscode, message, res) => {
         expiresIn: process.env.JWT_EXPIRE,
     });
             
+    const isProduction = process.env.NODE_ENV === "production";
+
     res.status(statuscode).cookie("token", token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax",
         expires: new Date(Date.now() + Number(process.env.COOKIE_EXPIRE || 7) * 24 * 60 * 60 * 1000),
     }).json({
         success: true,
